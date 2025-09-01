@@ -1,0 +1,28 @@
+{
+  "watch": [
+    "index.js"
+  ],
+  "ignore": [
+    "data/**",
+    "uploads/**",
+    "node_modules/**",
+    "*.log",
+    "**/*.json",
+    "**/*.txt",
+    "**/*.md",
+    "**/*.js.map",
+    "**/*.css",
+    "**/*.html"
+  ],
+  "ext": "js",
+  "delay": 3000,
+  "verbose": false,
+  "restartable": "rs",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "legacyWatch": false,
+  "signal": "SIGTERM"
+}
+
+
