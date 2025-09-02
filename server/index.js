@@ -56,6 +56,19 @@ const upload = multer({
   }
 });
 
+// CSV upload configuration
+const csvUpload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for CSV files
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed!'), false);
+    }
+  }
+});
+
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -203,7 +216,7 @@ app.post('/api/products', requireAuth, upload.single('image'), (req, res) => {
       sellingPrice: parseFloat(req.body.sellingPrice),
       quantity: parseInt(req.body.quantity),
       sold: parseInt(req.body.sold) || 0,
-      image: req.file ? `/uploads/${req.file.filename}` : null,
+      image: req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || null),
       createdAt: new Date().toISOString()
     };
     
@@ -239,7 +252,7 @@ app.post('/api/products/bulk', requireAuth, (req, res) => {
         sellingPrice: parseFloat(item.sellingPrice),
         quantity: parseInt(item.quantity),
         sold: parseInt(item.sold) || 0,
-        image: null,
+        image: item.imageUrl || null,
         createdAt: new Date().toISOString()
       };
       product.profitPercentage = ((product.sellingPrice - product.buyingPrice) / product.buyingPrice * 100).toFixed(2);
@@ -250,6 +263,139 @@ app.post('/api/products/bulk', requireAuth, (req, res) => {
     res.json({ success: true, createdCount: created.length, products: created });
   } catch (error) {
     res.status(500).json({ error: 'Failed to bulk create products' });
+  }
+});
+
+// Bulk upload products from CSV file
+app.post('/api/products/bulk-upload', requireAuth, csvUpload.single('csvFile'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No CSV file uploaded' });
+    }
+
+    const csvPath = req.file.path;
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    
+    // Parse CSV content
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      return res.status(400).json({ error: 'CSV file must have at least a header row and one data row' });
+    }
+
+    // Parse headers (first line)
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    
+    // Expected headers for CSV import
+    const expectedHeaders = [
+      'Product Code', 'Product Name', 'Category', 'Vendor', 
+      'Buying Price (₹)', 'Selling Price (₹)', 'Profit %', 'Quantity', 'Sold', 'Available Stock', 'Image URL'
+    ];
+    
+    // Validate headers
+    const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({ 
+        error: `Missing required headers: ${missingHeaders.join(', ')}` 
+      });
+    }
+
+    const products = readData(productsFile);
+    const uploaded = [];
+    const errors = [];
+
+    // Process data rows (skip header)
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const line = lines[i];
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length < headers.length) continue; // Skip incomplete rows
+        
+        const productData = {};
+        headers.forEach((header, index) => {
+          productData[header] = values[index] || '';
+        });
+
+        // Create product object
+        const product = {
+          id: Date.now() + Math.floor(Math.random() * 1000) + i,
+          productCode: productData['Product Code'] || '',
+          name: productData['Product Name'] || '',
+          category: productData['Category'] || '',
+          vendor: productData['Vendor'] || '',
+          buyingPrice: parseFloat(productData['Buying Price (₹)']) || 0,
+          sellingPrice: parseFloat(productData['Selling Price (₹)']) || 0,
+          profitPercentage: productData['Profit %'] ? parseFloat(productData['Profit %']) : 0,
+          quantity: parseInt(productData['Quantity']) || 0,
+          sold: parseInt(productData['Sold']) || 0,
+          image: productData['Image URL'] || null,
+          createdAt: new Date().toISOString()
+        };
+
+        // Validate required fields
+        if (!product.name || !product.category || !product.vendor) {
+          errors.push(`Row ${i + 1}: Missing required fields (name, category, or vendor)`);
+          continue;
+        }
+
+        if (product.buyingPrice <= 0 || product.sellingPrice <= 0) {
+          errors.push(`Row ${i + 1}: Invalid prices (must be greater than 0)`);
+          continue;
+        }
+
+        // Validate quantity and sold
+        if (product.quantity < 0) {
+          errors.push(`Row ${i + 1}: Quantity cannot be negative`);
+          continue;
+        }
+
+        if (product.sold < 0) {
+          errors.push(`Row ${i + 1}: Sold quantity cannot be negative`);
+          continue;
+        }
+
+        // Validate profit percentage if provided
+        if (productData['Profit %'] && (product.profitPercentage < -100 || product.profitPercentage > 1000)) {
+          errors.push(`Row ${i + 1}: Profit percentage should be between -100% and 1000%`);
+          continue;
+        }
+
+        // Calculate profit percentage if not provided
+        if (!productData['Profit %'] || product.profitPercentage === 0) {
+          product.profitPercentage = ((product.sellingPrice - product.buyingPrice) / product.buyingPrice * 100).toFixed(2);
+        }
+        
+        products.push(product);
+        uploaded.push(product);
+      } catch (rowError) {
+        errors.push(`Row ${i + 1}: ${rowError.message}`);
+      }
+    }
+
+    // Save products if any were successfully processed
+    if (uploaded.length > 0) {
+      writeData(productsFile, products);
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(csvPath);
+
+    if (uploaded.length === 0) {
+      return res.status(400).json({ 
+        error: 'No products were uploaded. Please check your CSV format.',
+        details: errors
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      uploadedCount: uploaded.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('CSV bulk upload error:', error);
+    res.status(500).json({ error: 'Failed to process CSV file' });
   }
 });
 
@@ -278,6 +424,8 @@ app.put('/api/products/:id', requireAuth, upload.single('image'), (req, res) => 
     
     if (req.file) {
       updatedProduct.image = `/uploads/${req.file.filename}`;
+    } else if (req.body.imageUrl !== undefined) {
+      updatedProduct.image = req.body.imageUrl || null;
     }
     
     // Calculate profit percentage

@@ -12,7 +12,8 @@ const ProductModal = ({ product, onClose, onSaved }) => {
     sellingPrice: '',
     quantity: '',
     sold: '',
-    image: null
+    image: null,
+    imageUrl: ''
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -33,7 +34,8 @@ const ProductModal = ({ product, onClose, onSaved }) => {
         sellingPrice: product.sellingPrice || '',
         quantity: product.quantity || '',
         sold: product.sold || '',
-        image: null
+        image: null,
+        imageUrl: product.image || ''
       });
       setImagePreview(product.image || null);
     }
@@ -78,7 +80,8 @@ const ProductModal = ({ product, onClose, onSaved }) => {
     if (file) {
       setFormData(prev => ({
         ...prev,
-        image: file
+        image: file,
+        imageUrl: '' // Clear URL when file is selected
       }));
       
       // Create preview
@@ -87,6 +90,29 @@ const ProductModal = ({ product, onClose, onSaved }) => {
         setImagePreview(e.target.result);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageUrlChange = (e) => {
+    const url = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: url,
+      image: null // Clear file when URL is entered
+    }));
+    
+    if (url) {
+      setImagePreview(url);
+    } else {
+      setImagePreview(null);
+    }
+    
+    // Clear error when user starts typing
+    if (errors.imageUrl) {
+      setErrors(prev => ({
+        ...prev,
+        imageUrl: ''
+      }));
     }
   };
 
@@ -125,6 +151,8 @@ const ProductModal = ({ product, onClose, onSaved }) => {
     
     if (formData.image) {
       submitData.append('image', formData.image);
+    } else if (formData.imageUrl) {
+      submitData.append('imageUrl', formData.imageUrl);
     }
     
     try {
@@ -411,7 +439,7 @@ const ProductModal = ({ product, onClose, onSaved }) => {
                     type="button"
                     onClick={() => {
                       setImagePreview(null);
-                      setFormData(prev => ({ ...prev, image: null }));
+                      setFormData(prev => ({ ...prev, image: null, imageUrl: '' }));
                     }}
                     className="absolute -top-2 -right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700"
                   >
@@ -419,6 +447,34 @@ const ProductModal = ({ product, onClose, onSaved }) => {
                   </button>
                 </div>
               )}
+
+              {/* Image URL Input */}
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-2">
+                  Image URL (optional)
+                </label>
+                <input
+                  type="url"
+                  name="imageUrl"
+                  value={formData.imageUrl}
+                  onChange={handleImageUrlChange}
+                  placeholder="https://example.com/image.jpg"
+                  className="input-field w-full"
+                />
+                {errors.imageUrl && (
+                  <p className="text-red-400 text-sm mt-1">{errors.imageUrl}</p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-dark-700"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-dark-900 text-dark-400">OR</span>
+                </div>
+              </div>
 
               {/* Upload Button */}
               <div className="flex items-center justify-center w-full">

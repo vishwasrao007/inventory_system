@@ -6,7 +6,8 @@ import {
   Edit, 
   Trash2, 
   Package,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import ProductModal from './ProductModal';
 import { useRefresh } from '../contexts/RefreshContext';
@@ -155,6 +156,7 @@ const Products = () => {
       'Quantity',
       'Sold',
       'Available Stock',
+      'Image URL',
       'Created Date',
       'Last Updated'
     ];
@@ -172,6 +174,7 @@ const Products = () => {
         product.quantity || 0,
         product.sold || 0,
         (product.quantity || 0) - (product.sold || 0),
+        product.image ? `"${window.location.origin}${product.image}"` : 'No Image',
         product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
         product.updatedAt ? new Date(product.updatedAt).toLocaleDateString('en-IN') : 'N/A'
       ].join(','))
@@ -232,6 +235,77 @@ const Products = () => {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', `inventory_summary_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Reset file input
+    event.target.value = '';
+
+    try {
+      const formData = new FormData();
+      formData.append('csvFile', file);
+
+      const response = await axios.post('/api/products/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        alert(`Successfully uploaded ${response.data.uploadedCount} products!`);
+        fetchProducts(); // Refresh the products list
+        triggerRefresh(); // Trigger global refresh
+      } else {
+        alert('Upload failed: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to upload CSV file. Please try again.';
+      alert('Upload failed: ' + errorMessage);
+    }
+  };
+
+  const downloadCSVTemplate = () => {
+    // Create CSV template with BOM for proper Excel encoding
+    const BOM = '\uFEFF';
+    const headers = [
+      'Product Code',
+      'Product Name',
+      'Category',
+      'Vendor',
+      'Buying Price (₹)',
+      'Selling Price (₹)',
+      'Profit %',
+      'Quantity',
+      'Sold',
+      'Available Stock',
+      'Image URL'
+    ];
+
+    const sampleData = [
+      ['NT001', 'Sample Nath', 'Nath', 'Sample Vendor', '100', '200', '50', '50', '0', '50', ''],
+      ['RK001', 'Sample Rakhi', 'Rakhi', 'Sample Vendor', '150', '250', '66.67', '30', '0', '30', '']
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...sampleData.map(row => row.join(','))
+    ].join('\n');
+
+    // Create and download template file
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'products_bulk_upload_template.csv');
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -381,6 +455,30 @@ const Products = () => {
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">Summary</span>
             </button>
+            <button
+              onClick={() => document.getElementById('bulkUploadInput').click()}
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center space-x-2"
+              title="Bulk upload products from CSV file"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Bulk Upload</span>
+            </button>
+
+            <button
+              onClick={downloadCSVTemplate}
+              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors flex items-center space-x-2"
+              title="Download CSV template for bulk upload"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Template</span>
+            </button>
+            <input
+              id="bulkUploadInput"
+              type="file"
+              accept=".csv"
+              onChange={handleBulkUpload}
+              className="hidden"
+            />
           </div>
         </div>
       </div>

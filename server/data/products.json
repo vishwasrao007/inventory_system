@@ -26,7 +26,8 @@
     "image": "/uploads/image-1756711926597-574800662.png",
     "createdAt": "2025-09-01T07:32:06.609Z",
     "profitPercentage": "40.00",
-    "updatedAt": "2025-09-01T09:25:03.649Z"
+    "updatedAt": "2025-09-01T13:21:20.127Z",
+    "sold": 1
   },
   {
     "id": 1756712221531,
@@ -80,5 +81,49 @@
     "image": "/uploads/image-1756721179768-563047477.png",
     "createdAt": "2025-09-01T10:06:19.776Z",
     "profitPercentage": "87.50"
+  },
+  {
+    "id": 1756737626182,
+    "productCode": "NT033",
+    "name": "Sample Nath",
+    "category": "Nath",
+    "vendor": "Sample Vendor",
+    "buyingPrice": 100,
+    "sellingPrice": 200,
+    "profitPercentage": "100.00",
+    "quantity": 50,
+    "sold": 0,
+    "image": "https://i.postimg.cc/6QBfCkTK/IMG-3836.jpg",
+    "createdAt": "2025-09-01T14:40:25.473Z",
+    "updatedAt": "2025-09-01T14:42:33.794Z"
+  },
+  {
+    "id": 1756737625537,
+    "productCode": "RK001",
+    "name": "Sample Rakhi",
+    "category": "Rakhi",
+    "vendor": "Sample Vendor",
+    "buyingPrice": 150,
+    "sellingPrice": 250,
+    "profitPercentage": 66.67,
+    "quantity": 30,
+    "sold": 0,
+    "image": "https://i.postimg.cc/6QBfCkTK/IMG-3836.jpg",
+    "createdAt": "2025-09-01T14:40:25.473Z"
+  },
+  {
+    "id": 1756738317895,
+    "productCode": "E037",
+    "name": "Earrings",
+    "category": "Earrings",
+    "vendor": "Dadar Shop Number 10",
+    "buyingPrice": 500,
+    "sellingPrice": 850,
+    "quantity": 8,
+    "sold": 1,
+    "image": "https://i.postimg.cc/zvzH2g4P/IMG-3394.jpg",
+    "createdAt": "2025-09-01T14:51:57.895Z",
+    "profitPercentage": "70.00",
+    "updatedAt": "2025-09-01T14:52:45.691Z"
   }
 ]
